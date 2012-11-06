@@ -2,6 +2,9 @@
 
 WTForms style form validataion for node.js
 
+
+[![Build Status](https://secure.travis-ci.org/exfm/node-forro.png)](http://travis-ci.org/exfm/node-forro)
+
 ## Express Example
 
     var express = require("express"),
@@ -26,7 +29,8 @@ WTForms style form validataion for node.js
         res.send(req.form.val(['username', 'artist', 'album', 'title']));
     });
 
-app.listen(8080);
+    app.listen(8080);
+
 
 
 ## Install
