@@ -2,21 +2,8 @@
 
 var assert = require('assert');
 
-
 var forro = require('../'),
     StringField = forro.StringField;
-
-// var Form = forro({
-//     'username': new StringField([
-//         new forro.Required({'message': 'Username is required'}),
-//         new forro.Length({
-//             'message': 'Music be between 1 and 3 characters',
-//             'min': 1,
-//             'max': 3
-//         })
-//     ]),
-//     'password': new StringField()
-// });
 
 function FakeRequest(data){
     this.params = {};
