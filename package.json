@@ -1,6 +1,6 @@
 {
   "author": "Lucas Hrabovsky <lucas@ex.fm>",
-  "name": "node-forro",
+  "name": "forro",
   "description": "WTForms style form validataion for node.js",
   "version": "0.0.0",
   "homepage": "http://github.com/exfm/node-forro",
@@ -9,12 +9,11 @@
     "url": "git://github.com/exfm/node-forro.git"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "./node_modules/.bin/mocha"
   },
   "dependencies": {},
   "devDependencies": {
-    "mocha": "1.4.1",
-    "chai": "1.2.0"
+    "mocha": "1.6.0"
   },
   "optionalDependencies": {},
   "engines": {
