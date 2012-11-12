@@ -147,7 +147,7 @@ function DateField(opts){
 util.inherits(DateField, Field);
 
 DateField.prototype.set = function(val){
-    this.value = new Date(val);
+    this.value = new Date(Number(val));
     return this;
 };
 
