@@ -42,3 +42,7 @@ WTForms style form validataion for node.js
     git clone
     npm install
     mocha
+
+## License
+
+MIT
