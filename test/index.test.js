@@ -130,4 +130,12 @@ describe('forro', function(){
 
         assert.equal(form.val('orderPlaced').toUTCString(), when.toUTCString());
     });
+
+    it('should allow undefined dates');
+
+    it('should allow setting datefield default to now');
+
+    it('should allow custom filters');
+
+    it('should handle type comparison in validators');
 });

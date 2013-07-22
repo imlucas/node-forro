@@ -171,17 +171,9 @@ Field.prototype.set = function(val){
 };
 
 Field.prototype.validate = function(){
-    var checker = check(this.value),
+    var checker,
         sanitizer = sanitize(this.value),
         self = this;
-
-    this.validators.map(function(validatorArgs){
-        if(validatorArgs.length === 0){
-            return;
-        }
-        var method = validatorArgs.pop();
-        checker[method].apply(checker, validatorArgs);
-    });
 
     this.filters.map(function(filter){
         if(typeof filter === 'function'){
@@ -190,6 +182,16 @@ Field.prototype.validate = function(){
         else {
             self.value = sanitizer[filter]();
         }
+    });
+
+    checker = check(this.value);
+
+    this.validators.map(function(validatorArgs){
+        if(validatorArgs.length === 0){
+            return;
+        }
+        var method = validatorArgs.pop();
+        checker[method].apply(checker, validatorArgs);
     });
 };
 
