@@ -201,11 +201,13 @@ util.inherits(StringField, Field);
 
 function NumberField(opts){
     NumberField.super_.call(this, opts);
+    this.filters = ['toInt'];
 }
 util.inherits(NumberField, Field);
 
 function BooleanField(opts){
     BooleanField.super_.call(this, opts);
+    this.filters = ['toBoolean'];
 }
 util.inherits(BooleanField, Field);
 
@@ -213,12 +215,16 @@ util.inherits(BooleanField, Field);
 // Doesn't matter if its a string format or epoch.
 function DateField(opts){
     DateField.super_.call(this, opts);
+    this.filters = [this.castDate.bind(this)];
 }
 util.inherits(DateField, Field);
 
-DateField.prototype.set = function(val){
-    this.value = new Date(Number(val));
-    return this;
+DateField.prototype.castDate = function(val){
+    if(val){
+        var ms = parseInt(val, 10);
+        return new Date((isNaN(ms) ? val : ms));
+    }
+    return val;
 };
 
 module.exports = exports;
