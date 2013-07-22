@@ -17,6 +17,17 @@ exports = function(decl, opts){
     inst.middleware = function(){
         return function(req, res, next){
             req.form = new Form(decl, opts);
+            req.form.fields.map(function(field){
+                req.form.set(field.name, req.param(field.name));
+            });
+
+            try{
+                req.validate();
+                next();
+            }
+            catch(e){
+                next(e);
+            }
         };
     };
 };
@@ -45,19 +56,19 @@ Form.prototype.field = function(name){
 
 Form.prototype.validate = function(){
     for(var f in this.fields){
-        try{
-            this.field(f).validate();
-        } catch(e){
-            if(e.constructor === ValidationError){
-                this.errors.push({
-                    'field': this.field(f),
-                    'message': e.message
-                });
-            }
-            else{
-                throw e;
-            }
-        }
+        // try{
+        this.field(f).validate();
+        // } catch(e){
+        //     if(e.constructor === ValidationError){
+        //         this.errors.push({
+        //             'field': this.field(f),
+        //             'message': e.message
+        //         });
+        //     }
+        //     else{
+        //         throw e;
+        //     }
+        // }
     }
     return this;
 };
