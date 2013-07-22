@@ -16,8 +16,8 @@ to handle the actual validation and casting.
     // ... some code
 
     var AuthForm = forro({
-        'username': forro.string().required(),
-        'password': forro.string().required(),
+        'username': forro.string().required().max(32),
+        'password': forro.string().required().length(4, 25),
         'rememberMe': forro.boolean()
     });
 
@@ -28,7 +28,7 @@ to handle the actual validation and casting.
         // req.form.val('username') and req.form.val('password')
     });
 
-        // ... some more code
+    // ... some more code
 
 
 
