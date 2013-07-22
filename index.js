@@ -4,32 +4,43 @@ var util = require('util'),
     check = require('validator').check,
     sanitize = require('validator').sanitize;
 
-exports = function(decl, opts){
+function ValidationError(msg){
+    this.name = 'ValidationError';
+    this.message = msg;
+    ValidationError.super_.call(this, msg);
+}
+util.inherits(ValidationError, Error);
+
+exports = function(decl){
+    for(var name in decl){
+        decl[name].name = name;
+    }
+
     // constructor called by new.
     // middleware will call this for every request
     // so 1 instance of a form = 1 request
-    var inst = function factory(){
-        var f = new Form(decl, opts);
-        return f;
+    return function(data){
+        return new Form(decl, data);
     };
 
-    // return middleware handler for express
-    inst.middleware = function(){
-        return function(req, res, next){
-            req.form = new Form(decl, opts);
-            req.form.fields.map(function(field){
-                req.form.set(field.name, req.param(field.name));
-            });
+    // // return middleware handler for express
+    // inst.middleware = function(){
+    //     return function(req, res, next){
+    //         req.form = new Form(decl, opts);
+    //         req.form.fields.map(function(field){
+    //             req.form.set(field.name, req.param(field.name));
+    //         });
 
-            try{
-                req.validate();
-                next();
-            }
-            catch(e){
-                next(e);
-            }
-        };
-    };
+    //         try{
+    //             req.validate();
+    //             next();
+    //         }
+    //         catch(e){
+    //             next(e);
+    //         }
+    //     };
+    // };
+    // return inst;
 };
 
 // exports.form = function(F){
@@ -39,36 +50,22 @@ exports = function(decl, opts){
 //     };
 // };
 
-function Form(decl, opts){
-    opts = opts || {};
+function Form(decl, data){
+    data = data || {};
     this.fields = decl;
-    this.errors = [];
-
-    this.fieldOpts = {};
-    if(opts.required !== undefined){
-        this.fieldOpts.required = opts.required;
-    }
+    this.set(data);
 }
 
 Form.prototype.field = function(name){
     return this.fields[name];
 };
 
+// validate all fields
+//
+// @throws {ValidationError}
 Form.prototype.validate = function(){
     for(var f in this.fields){
-        // try{
         this.field(f).validate();
-        // } catch(e){
-        //     if(e.constructor === ValidationError){
-        //         this.errors.push({
-        //             'field': this.field(f),
-        //             'message': e.message
-        //         });
-        //     }
-        //     else{
-        //         throw e;
-        //     }
-        // }
     }
     return this;
 };
@@ -91,7 +88,14 @@ Form.prototype.vals = function(names){
 };
 
 // populate fields with data.
-Form.prototype.set = function(){};
+Form.prototype.set = function(obj){
+    for(var name in obj){
+        if(this.fields.hasOwnProperty(name)){
+            this.fields[name].set(obj[name]);
+        }
+    }
+    return this;
+};
 
 // get the validated and sanitized value for a field.
 //
@@ -109,37 +113,17 @@ Form.prototype.val = function(name){
     }
 };
 
-function ValidationError(msg){
-    this.name = 'ValidationError';
-    this.message = msg;
-    ValidationError.super_.call(this, msg);
-}
-util.inherits(ValidationError, Error);
-
-function Field(opts){
-    opts = opts || {};
-    this.isRequired = false;
-    this.isRequired = false;
-
-    if(opts.required !== undefined){
-        this.isRequired = opts.required;
-    }
-    else if(opts.optional !== undefined){
-        this.isOptional = opts.optional;
-        if(opts.optional === true){
-            this.isRequired = false;
-        }
-        else{
-            this.isRequired = true;
-        }
-    }
+// base field that wraps node-validator.
+function Field(){
     this.name = undefined;
-    this.defaultValue = opts['default'] || undefined;
+    this.defaultValue = undefined;
     this.message = 'required';
 }
 
+// shortcut for adding a `notEmpty` validator
 Field.prototype.required = function(){
     this.isRequired = true;
+    this.validators.push('notEmpty');
     return this;
 };
 
@@ -162,16 +146,13 @@ Field.prototype.sanitizer = null;
 Field.prototype.filters = ['trim', 'xss'];
 
 // Setter for default value
-// @todo (lucas) refactor from getter.
-Field.prototype['default'] = function(){
-    if(typeof this.defaultValue === 'function'){
-        return this.defaultValue();
+Field.prototype['default'] = function(val){
+    if(typeof val === 'function'){
+        this.defaultValue = val();
     }
-    return this.defaultValue;
-};
-
-Field.prototype.required = function(){
-    this.validators.push('notEmpty');
+    else {
+        this.defaultValue = val;
+    }
     return this;
 };
 
@@ -195,23 +176,37 @@ Field.prototype.set = function(val){
     return this;
 };
 
+Field.prototype.validate = function(){
+    this.message = this.name + ' is required';
+    if(this.isRequired && (!this.value || this.value.length === 0)){
+        throw new ValidationError(this.message);
+    }
+};
+
 // No way.  A String!
 function StringField(opts){
     StringField.super_.call(this, opts);
 }
 util.inherits(StringField, Field);
 
-StringField.prototype.validate = function(){
-    if(this.required && (!this.value || this.value.length === 0)){
-        throw new ValidationError(this.message);
-    }
-    return this;
-};
+// StringField.prototype.validate = function(){
+//     this.message = this.name + ' is required';
+
+//     if(this.required && (!this.value || this.value.length === 0)){
+//         throw new ValidationError(this.message);
+//     }
+//     return this;
+// };
 
 function NumberField(opts){
     NumberField.super_.call(this, opts);
 }
 util.inherits(NumberField, Field);
+
+function BooleanField(opts){
+    BooleanField.super_.call(this, opts);
+}
+util.inherits(BooleanField, Field);
 
 // Cast a field to a proper Date object.
 // Doesn't matter if its a string format or epoch.
@@ -225,16 +220,14 @@ DateField.prototype.set = function(val){
     return this;
 };
 
-DateField.prototype.validate = function(){
-    return this;
-};
-
 module.exports = exports;
+
 // prodide short hand field types for export.
 var types = {
     'string': StringField,
     'date': DateField,
-    'number': NumberField
+    'number': NumberField,
+    'boolean': BooleanField
 };
 Object.keys(types).map(function(type){
     module.exports[type] = function(){
