@@ -1,10 +1,12 @@
 "use strict";
 
-var util = require('util');
+var util = require('util'),
+    check = require('validator').check,
+    sanitize = require('validator').sanitize;
 
 exports = function(decl, opts){
-    return function(req, res){
-        var f = new Form(req, res, decl, opts);
+    return function(){
+        var f = new Form(decl, opts);
         return f;
     };
 };
@@ -26,14 +28,6 @@ function Form(req, res, decl, opts){
     this.fieldOpts = {};
     if(opts.required !== undefined){
         this.fieldOpts.required = opts.required;
-    }
-
-    for(var f in this.fields){
-        if(typeof this.field(f) === 'function'){
-            this.fields[f] = new this.fields[f](this.fieldOpts);
-        }
-        this.fields[f].name = f;
-        this.field(f).set(req.param(f, this.fields[f]['default']()));
     }
 }
 
@@ -80,6 +74,20 @@ Form.prototype.val = function(key){
     }
 };
 
+Form.prototype.middleware = function(req, res, next){
+    var form = {};
+
+    for(var f in this.fields){
+        if(typeof this.field(f) === 'function'){
+            form.fields[f] = new this.fields[f](this.fieldOpts);
+        }
+        form.fields[f].name = f;
+        form.field(f).set(req.param(f, form.fields[f]['default']()));
+    }
+
+    req.form = form;
+};
+
 function ValidationError(msg){
     this.name = 'ValidationError';
     this.message = msg;
@@ -89,26 +97,51 @@ util.inherits(ValidationError, Error);
 
 function Field(opts){
     opts = opts || {};
-    this.required = false;
-    this.optional = false;
+    this.isRequired = false;
+    this.isRequired = false;
 
     if(opts.required !== undefined){
-        this.required = opts.required;
+        this.isRequired = opts.required;
     }
     else if(opts.optional !== undefined){
-        this.optional = opts.optional;
+        this.isOptional = opts.optional;
         if(opts.optional === true){
-            this.required = false;
+            this.isRequired = false;
         }
         else{
-            this.required = true;
+            this.isRequired = true;
         }
     }
     this.name = undefined;
-    this.defaultValue = opts['default'] || null;
+    this.defaultValue = opts['default'] || undefined;
     this.message = 'required';
 }
 
+Field.prototype.required = function(){
+    this.isRequired = true;
+    return this;
+};
+
+// Set like this.checker = check(this.value);
+Field.prototype.checker = null;
+
+// Functions to call on the checker
+//
+//     this.validators.push(validators.email);
+Field.prototype.validators = [];
+
+// node-validator to run sanitizer on
+//
+//     this.sanitizer = sanitize(this.value);
+Field.prototype.sanitizer = null;
+
+// Functions to call on the sanitizer
+//
+//     this.filters.push(filters.xss);
+Field.prototype.filters = ['trim', 'xss'];
+
+// Setter for default value
+// @todo (lucas) refactor from getter.
 Field.prototype['default'] = function(){
     if(typeof this.defaultValue === 'function'){
         return this.defaultValue();
@@ -116,8 +149,29 @@ Field.prototype['default'] = function(){
     return this.defaultValue;
 };
 
+Field.prototype.required = function(){
+    this.validators.push('notEmpty');
+    return this;
+};
+
+// Custom filter function to apply to an incoming field.
+// should be called before or after native (ie toInt, toString)?
+// callback-able?
+Field.prototype.use = function(fn){
+    this.filters.push(fn);
+    return this;
+};
+
+
+// Gets the sanitized value.
 Field.prototype.val = function(){
     return this.value;
+};
+
+// @todo (lucas) Set raw value and run validators and filters here?
+Field.prototype.set = function(val){
+    this.value = val;
+    return this;
 };
 
 // No way.  A String!
@@ -126,10 +180,6 @@ function StringField(opts){
 }
 util.inherits(StringField, Field);
 
-StringField.prototype.set = function(val){
-    this.value = val;
-};
-
 StringField.prototype.validate = function(){
     if(this.required && (!this.value || this.value.length === 0)){
         throw new ValidationError(this.message);
@@ -137,7 +187,10 @@ StringField.prototype.validate = function(){
     return this;
 };
 
-exports.StringField = StringField;
+function NumberField(opts){
+    NumberField.super_.call(this, opts);
+}
+util.inherits(NumberField, Field);
 
 // Cast a field to a proper Date object.
 // Doesn't matter if its a string format or epoch.
@@ -155,6 +208,57 @@ DateField.prototype.validate = function(){
     return this;
 };
 
-exports.DateField = DateField;
-
 module.exports = exports;
+// prodide short hand field types for export.
+var types = {
+    'string': StringField,
+    'date': DateField,
+    'number': NumberField
+};
+Object.keys(types).map(function(type){
+    module.exports[type] = function(){
+        return new types[type]();
+    };
+});
+
+// Examples.
+// var forro = require('forro'),
+//     Dot = require('./model'),
+//     api = require('./api'),
+//     myForm = forro({
+//         'boe': forro.string().required(),
+//         'bax': forro.string().required(),
+//         'moe': forro.string(),
+//         'french': forro.string().in(['mustard', 'fries', 'wine'])
+//     }),
+//     dotForm = forro({
+//         'sentiment': forro.number().required().in([1, -1]),
+//         'hashtags': forro.string().required().use(Dot.tokenizeHashtags),
+//         'created_on': forro.date().default('now')
+//     });
+
+// api.post('/', myForm.middleware(), function(req, res){
+//     req.form.boe.val();
+//     req.form.val('boe');
+//     req.form.val('boe', 'bax');  // object or array?
+// });
+
+// // as a middleware, should process and sanitize.
+// // if there are validation errors, automatically call next with form errors.
+// api.post('/dot', myForm.middleware(), function(req, res, next){
+//     Dot.create(req.form.sentiment.val(), req.form.hashtags.val(), req.form.created_on.val(), function(err, dot){
+//         if(err) return next(err);
+//         res.send(dot);
+//     });
+// });
+
+
+// // as a middleware, should process and sanitize.
+// // if there are validation errors, automatically call next with form errors.
+// api.post('/dot', function(req, res, next){
+//     // Call a Function, with field values as args and last arg as the callback function
+//     req.form.call(Dot.create, ['sentiment', 'hashtags', 'created_on'], function(err, dot){
+//         if(err) return next(err);
+//         res.send(dot);
+//     });
+// }).form(myForm);
