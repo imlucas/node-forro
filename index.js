@@ -116,7 +116,7 @@ function Field(){
 // shortcut for adding a `notEmpty` validator
 Field.prototype.required = function(){
     this.isRequired = true;
-    this.validators.push('notEmpty');
+    this.validators.push(['notEmpty']);
     return this;
 };
 
@@ -170,9 +170,30 @@ Field.prototype.set = function(val){
 };
 
 Field.prototype.validate = function(){
-    if(this.isRequired && (!this.value || this.value.length === 0)){
-        throw new ValidationError(this.name + ' is required');
-    }
+    var checker = check(this.value),
+        sanitizer = sanitize(this.value),
+        self = this;
+
+    this.validators.map(function(validatorArgs){
+        if(validatorArgs.length === 0){
+            return;
+        }
+        var method = validatorArgs.pop();
+        checker[method].apply(checker, validatorArgs);
+    });
+
+    this.filters.map(function(filter){
+        if(typeof filter === 'function'){
+            self.value = filter(self.value);
+        }
+        else {
+            self.value = sanitizer[filter]();
+        }
+    });
+
+    // if(this.isRequired && (!this.value || this.value.length === 0)){
+    //     throw new ValidationError(this.name + ' is required');
+    // }
 };
 
 // No way.  A String!

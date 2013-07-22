@@ -69,7 +69,21 @@ describe('forro', function(){
         assert(new AuthForm({'username': 'a', 'password':'b'}).validate());
     });
 
-    it('should access actual field values correctly');
+    it('should run the simplest filters', function(){
+        var AuthForm = forro({
+            'username': forro.string().required(),
+            'password': forro.string().required()
+        }), form;
+
+        form = new AuthForm({'username': '  a  ', 'password':'b'});
+        form.validate();
+
+        assert.equal(form.val('username'), 'a');
+    });
+
+    it('should correctly cast Date fields from strings');
+
+    it('should correctly cast Date fields from timestamps as strings');
 
     it('should not automatically supply a default value if none specified');
 });
