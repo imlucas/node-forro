@@ -5,23 +5,31 @@ var util = require('util'),
     sanitize = require('validator').sanitize;
 
 exports = function(decl, opts){
-    return function(){
+    // constructor called by new.
+    // middleware will call this for every request
+    // so 1 instance of a form = 1 request
+    var inst = function factory(){
         var f = new Form(decl, opts);
         return f;
     };
-};
 
-exports.form = function(F){
-    return function(req, res, next){
-        req.form = new F(req, res);
-        next();
+    // return middleware handler for express
+    inst.middleware = function(){
+        return function(req, res, next){
+            req.form = new Form(decl, opts);
+        };
     };
 };
 
-function Form(req, res, decl, opts){
+// exports.form = function(F){
+//     return function(req, res, next){
+//         req.form = new F(req, res);
+//         next();
+//     };
+// };
+
+function Form(decl, opts){
     opts = opts || {};
-    this.req = req;
-    this.res = res;
     this.fields = decl;
     this.errors = [];
 
@@ -61,31 +69,33 @@ Form.prototype.validateOrAbort = function(){
     return true;
 };
 
-Form.prototype.val = function(key){
-    if(Array.isArray(key)){
+// Take a list of field names and return a list of values.
+//
+// @param {Array} names
+Form.prototype.vals = function(names){
+    var self = this;
+    return names.map(function(name){
+        return self.val(name);
+    });
+};
+
+// populate fields with data.
+Form.prototype.set = function(){};
+
+// get the validated and sanitized value for a field.
+//
+// @param {String} name
+Form.prototype.val = function(name){
+    if(Array.isArray(name)){
         var k, r = {};
-        for(k in key){
-            r[key[k]] = this.val(key[k]);
+        for(k in name){
+            r[name[k]] = this.val(name[k]);
         }
         return r;
     }
     else{
-        return this.field(key).val();
+        return this.field(name).val();
     }
-};
-
-Form.prototype.middleware = function(req, res, next){
-    var form = {};
-
-    for(var f in this.fields){
-        if(typeof this.field(f) === 'function'){
-            form.fields[f] = new this.fields[f](this.fieldOpts);
-        }
-        form.fields[f].name = f;
-        form.field(f).set(req.param(f, form.fields[f]['default']()));
-    }
-
-    req.form = form;
 };
 
 function ValidationError(msg){
