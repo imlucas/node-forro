@@ -111,6 +111,7 @@ function Field(){
     this.name = undefined;
     this.defaultValue = undefined;
     this.message = 'required';
+    this.validators = [];
 }
 
 // shortcut for adding a `notEmpty` validator
@@ -190,10 +191,6 @@ Field.prototype.validate = function(){
             self.value = sanitizer[filter]();
         }
     });
-
-    // if(this.isRequired && (!this.value || this.value.length === 0)){
-    //     throw new ValidationError(this.name + ' is required');
-    // }
 };
 
 // No way.  A String!
