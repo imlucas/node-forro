@@ -1,12 +1,12 @@
 {
-  "author": "Lucas Hrabovsky <lucas@ex.fm>",
+  "author": "Lucas Hrabovsky <hrabovsky.lucas@gmail.com>",
   "name": "forro",
   "description": "WTForms style form validataion for node.js",
   "version": "0.0.1",
-  "homepage": "http://github.com/exfm/node-forro",
+  "homepage": "http://github.com/imlucas/node-forro",
   "repository": {
     "type": "git",
-    "url": "git://github.com/exfm/node-forro.git"
+    "url": "git://github.com/imlucas/node-forro.git"
   },
   "scripts": {
     "test": "./node_modules/.bin/mocha"
