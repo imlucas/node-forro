@@ -43,13 +43,6 @@ exports = function(decl){
     // return inst;
 };
 
-// exports.form = function(F){
-//     return function(req, res, next){
-//         req.form = new F(req, res);
-//         next();
-//     };
-// };
-
 function Form(decl, data){
     data = data || {};
     this.fields = decl;
@@ -177,9 +170,8 @@ Field.prototype.set = function(val){
 };
 
 Field.prototype.validate = function(){
-    this.message = this.name + ' is required';
     if(this.isRequired && (!this.value || this.value.length === 0)){
-        throw new ValidationError(this.message);
+        throw new ValidationError(this.name + ' is required');
     }
 };
 
@@ -188,15 +180,6 @@ function StringField(opts){
     StringField.super_.call(this, opts);
 }
 util.inherits(StringField, Field);
-
-// StringField.prototype.validate = function(){
-//     this.message = this.name + ' is required';
-
-//     if(this.required && (!this.value || this.value.length === 0)){
-//         throw new ValidationError(this.message);
-//     }
-//     return this;
-// };
 
 function NumberField(opts){
     NumberField.super_.call(this, opts);
@@ -234,6 +217,47 @@ Object.keys(types).map(function(type){
         return new types[type]();
     };
 });
+
+// map of validator names to validator methods.
+var validators = {
+    'is': 'is',
+    'not': 'not',
+    'email': 'isEmail',
+    'url': 'isUrl',
+    'ip': 'isIP',
+    'ipv4': 'isIPv4',
+    'ipv6': 'isIPv6',
+    'alpha': 'isAlpha',
+    'alphanumeric': 'isAlphanumeric',
+    'numeric': 'isNumeric',
+    'hex': 'isHexadecimal',
+    'hexColor': 'isHexColor',
+    'int': 'isInt',
+    'lowercase': 'isLowercase',
+    'uppercase': 'isUppercase',
+    'decimal': 'isDecimal',
+    'float': 'isFloat',
+    'notNull': 'notNull',
+    'isNull': 'isNull',
+    'notEmpty': 'notEmpty',
+    'equals': 'equals',
+    'contains': 'contains',
+    'notContains': 'notContains',
+    'regex': 'regex',
+    'notRegex': 'notRegex',
+    'length': 'len',
+    'uuid': 'isUUID',
+    'uuidv3': 'isUUIDv3',
+    'uuidv4': 'isUUIDv4',
+    'date': 'isDate',
+    'after': 'isAfter',
+    'before': 'isBefore',
+    'in': 'isIn',
+    'notIn': 'notIn',
+    'min': 'min',
+    'max': 'max',
+    'creditCard': 'isCreditCard'
+};
 
 // Examples.
 // var forro = require('forro'),

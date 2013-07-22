@@ -69,4 +69,7 @@ describe('forro', function(){
         assert(new AuthForm({'username': 'a', 'password':'b'}).validate());
     });
 
+    it('should access actual field values correctly');
+
+    it('should not automatically supply a default value if none specified');
 });
