@@ -12,7 +12,7 @@ in your controller code that what you're dealing with has already been
 validate and cast the way you want is pretty great.
 forro adds these niceties to Javascript land.
 
-[![Build Status](https://secure.travis-ci.org/exfm/node-forro.png)](http://travis-ci.org/exfm/node-forro)
+[![Build Status](https://secure.travis-ci.org/imlucas/node-forro.png)](http://travis-ci.org/imlucas/node-forro)
 
 ## Example
 
