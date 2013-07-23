@@ -43,6 +43,13 @@ to handle the actual validation and casting.
         // req.form.val('username') and req.form.val('password')
     });
 
+    app.post("/bookmark", BookmarkForm.middleware(), function(req, res){
+        saveBookmark(req.form.val('url'), req.form.val('tags'), req.form.val('created_on'), function(err, bookmark){
+            if(err) return next(err);
+            res.send(bookmark);
+        });
+    });
+
     // ... some more code
 
 
