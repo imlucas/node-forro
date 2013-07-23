@@ -65,7 +65,7 @@ forro adds these niceties to Javascript land.
 
 ## Install
 
-     npm install node-forro
+     npm install forro
 
 ## Testing
 
