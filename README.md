@@ -1,9 +1,16 @@
 # forro
 
-WTForms style form validation for node.js, using the excellent
+Encapsulate form validation definitions in objects, using the excellent
 [validator](https://github.com/chriso/node-validator) module
 to handle the actual validation and casting.
 
+I missed the form definition pattern Python has adapted with libraries like
+[web.py](http://webpy.org/form) and
+[wtforms](http://wtforms.simplecodes.com/docs/1.0.4/crash_course.html#getting-started).
+Being able to declare form schema's in one place, and being able to trust
+in your controller code that what you're dealing with has already been
+validate and cast the way you want is pretty great.
+forro adds these niceties to Javascript land.
 
 [![Build Status](https://secure.travis-ci.org/exfm/node-forro.png)](http://travis-ci.org/exfm/node-forro)
 
