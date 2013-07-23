@@ -1,28 +1,7 @@
 "use strict";
 
-var assert = require('assert');
-
-var forro = require('../');
-
-function FakeRequest(data){
-    this.params = {};
-    for(var key in data){
-        this.params[key] = data[key];
-    }
-}
-
-FakeRequest.prototype.param = function(name){
-    return this.params[name];
-};
-
-function FakeResponse(){
-    this.code = -1;
-    this.data = {};
-}
-FakeResponse.prototype.send = function(code, data){
-    this.code = code;
-    this.data = data;
-};
+var assert = require('assert'),
+    forro = require('../');
 
 describe('forro', function(){
     it('is both a form library and a genre of north brazilian music', function(){
