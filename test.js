@@ -1,7 +1,7 @@
 "use strict";
 
 var assert = require('assert'),
-    forro = require('../'),
+    forro = require('./'),
     StringField = forro.StringField,
     NumberField = forro.NumberField,
     DateField = forro.DateField,
