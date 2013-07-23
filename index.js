@@ -88,6 +88,9 @@ Form.prototype.vals = function(names){
 // populate fields with data.
 Form.prototype.set = function(key, value){
     if(typeof key === 'object' && !value){
+        if(Object.keys(key).length < 1){
+            return this;
+        }
         var name, obj = key;
         for(name in obj){
             this.data[name] = obj[name];
@@ -163,6 +166,7 @@ function Field(){
     this.isDefaultValue = undefined;
     this.message = 'required';
     this.validators = [];
+    this.filters = ['trim', 'xss'];
 }
 
 Object.keys(validators).map(function(meth){
@@ -189,7 +193,7 @@ Field.prototype.validators = [];
 // Functions to call on the node-validator Filter instance
 //
 //     this.filters.push(filters.xss);
-Field.prototype.filters = ['trim', 'xss'];
+// Field.prototype.filters = ['trim', 'xss'];
 
 // Setter for default value
 Field.prototype['default'] = function(val){
@@ -224,6 +228,7 @@ Field.prototype.validate = function(val){
             value = filter(value);
         }
         else {
+
             value = sanitizer[filter]();
         }
     });
@@ -249,13 +254,13 @@ util.inherits(StringField, Field);
 
 function NumberField(){
     NumberField.super_.call(this);
-    this.filters = ['toInt'];
+    this.filters.push('toInt');
 }
 util.inherits(NumberField, Field);
 
 function BooleanField(){
     BooleanField.super_.call(this);
-    this.filters = ['toBoolean'];
+    this.filters.push('toBoolean');
 }
 util.inherits(BooleanField, Field);
 
@@ -263,7 +268,7 @@ util.inherits(BooleanField, Field);
 // Doesn't matter if its a string format or epoch.
 function DateField(){
     DateField.super_.call(this);
-    this.filters = [this.castDate.bind(this)];
+    this.filters.push(this.castDate.bind(this));
 }
 util.inherits(DateField, Field);
 
