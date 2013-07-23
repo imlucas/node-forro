@@ -13,6 +13,9 @@ util.inherits(ValidationError, Error);
 
 exports = function(decl){
     for(var name in decl){
+        if(typeof decl[name] === 'function'){
+            decl[name] = new decl[name]();
+        }
         decl[name].name = name;
     }
 
@@ -122,31 +125,18 @@ Field.prototype.required = function(){
     return this;
 };
 
-// Set like this.checker = check(this.value);
-Field.prototype.checker = null;
-
-// Functions to call on the checker
+// Functions to call on the node-validator Validator instance
 //
 //     this.validators.push(validators.email);
 Field.prototype.validators = [];
 
-// node-validator to run sanitizer on
-//
-//     this.sanitizer = sanitize(this.value);
-Field.prototype.sanitizer = null;
-
-// Functions to call on the sanitizer
+// Functions to call on the node-validator Filter instance
 //
 //     this.filters.push(filters.xss);
 Field.prototype.filters = ['trim', 'xss'];
 
-Field.prototype.defaults = {};
-
 // Setter for default value
 Field.prototype['default'] = function(val){
-    if(this.defaults[val]){
-        val = this.defaults[val];
-    }
     if(typeof val === 'function'){
         this.defaultValue = val();
     }
@@ -230,12 +220,17 @@ function DateField(opts){
 }
 util.inherits(DateField, Field);
 
-DateField.prototype.defaults = {
-    'now': function(){
-        return new Date().getTime();
-    }
+// For setting the default value to now
+//
+//     var forro = require('forro'),
+//         myForm = forro({
+//             'created_on': forro.DateField.default(forro.DateField.now)
+//         });
+DateField.now = function(){
+    return new Date().getTime();
 };
 
+// Handle casting ms or timestamp string to a Date instance.
 DateField.prototype.castDate = function(val){
     if(val){
         var ms = parseInt(val, 10);
@@ -249,18 +244,29 @@ DateField.prototype.castDate = function(val){
 
 module.exports = exports;
 
-// prodide short hand field types for export.
-var types = {
-    'string': StringField,
-    'date': DateField,
-    'number': NumberField,
-    'boolean': BooleanField
-};
-Object.keys(types).map(function(type){
-    module.exports[type] = function(){
-        return new types[type]();
-    };
-});
+// wrap a class to add static methods for all instance methods that merely
+// created a new instance of a class and return calling the method
+// using our new instance as the context.
+function typeHolder(Prototype){
+    var inst = Prototype,
+        methods = Array.prototype.concat.call([],
+            Object.keys(Prototype.super_.prototype),
+            Object.keys(Prototype.prototype));
+
+    methods.map(function(meth){
+        inst[meth] = function(){
+            var i = new Prototype();
+            return i[meth].apply(i, Array.prototype.slice.call(arguments, 0));
+        };
+    });
+    return inst;
+}
+
+// expose fields for typing
+module.exports.StringField = typeHolder(StringField);
+module.exports.BooleanField = typeHolder(BooleanField);
+module.exports.DateField = typeHolder(DateField);
+module.exports.NumberField = typeHolder(NumberField);
 
 // map of validator names to validator methods.
 var validators = {

@@ -1,7 +1,11 @@
 "use strict";
 
 var assert = require('assert'),
-    forro = require('../');
+    forro = require('../'),
+    StringField = forro.StringField,
+    NumberField = forro.NumberField,
+    DateField = forro.DateField,
+    BooleanField = forro.BooleanField;
 
 describe('forro', function(){
     it('is both a form library and a genre of north brazilian music', function(){
@@ -10,8 +14,8 @@ describe('forro', function(){
 
     it('should support the simplest form', function(){
         var AuthForm = forro({
-            'username': forro.string().required(),
-            'password': forro.string().required()
+            'username': StringField.required(),
+            'password': StringField.required()
         });
 
         assert(new AuthForm({'username': 'a', 'password':'b'}).validate());
@@ -19,8 +23,8 @@ describe('forro', function(){
 
     it('should throw if a required field is not supplied', function(){
         var AuthForm = forro({
-            'username': forro.string().required(),
-            'password': forro.string().required()
+            'username': StringField.required(),
+            'password': StringField.required()
         });
         assert.throws(function(){
             new AuthForm({'username': 'a'}).validate();
@@ -29,8 +33,8 @@ describe('forro', function(){
 
     it('should throw if a required field is just whitespace', function(){
         var AuthForm = forro({
-            'username': forro.string().required(),
-            'password': forro.string().required()
+            'username': StringField.required(),
+            'password': StringField.required()
         });
 
         assert.throws(function(){
@@ -40,9 +44,9 @@ describe('forro', function(){
 
     it('should allow required and optional fields', function(){
         var AuthForm = forro({
-            'username': forro.string().required(),
-            'password': forro.string().required(),
-            'rememberMe': forro.boolean()
+            'username': StringField.required(),
+            'password': StringField.required(),
+            'rememberMe': BooleanField
         });
 
         assert(new AuthForm({'username': 'a', 'password':'b'}).validate());
@@ -50,8 +54,8 @@ describe('forro', function(){
 
     it('should run the simplest filters', function(){
         var AuthForm = forro({
-            'username': forro.string().required(),
-            'password': forro.string().required()
+            'username': StringField.required(),
+            'password': StringField.required()
         }), form;
 
         form = new AuthForm({'username': '  a  ', 'password':'b'});
@@ -62,7 +66,7 @@ describe('forro', function(){
 
     it('should cast numbers', function(){
         var PizzaForm = forro({
-            'quantity': forro.number()
+            'quantity': NumberField
         }), form;
         form = new PizzaForm({'quantity': '  1  '}).validate();
         assert.equal(form.val('quantity'), 1);
@@ -70,9 +74,9 @@ describe('forro', function(){
 
     it('should cast booleans', function(){
         var PizzaForm = forro({
-            'hasExtraToppings': forro.boolean(),
-            'wantItNow': forro.boolean(),
-            'breadsticks': forro.boolean()
+            'hasExtraToppings': BooleanField,
+            'wantItNow': BooleanField,
+            'breadsticks': BooleanField
         }), form;
 
         form = new PizzaForm({
@@ -88,7 +92,7 @@ describe('forro', function(){
 
     it('should correctly cast Date fields from strings', function(){
         var PizzaForm = forro({
-            'orderPlaced': forro.date()
+            'orderPlaced': DateField
         }), form, when = new Date();
 
         form = new PizzaForm({
@@ -101,7 +105,7 @@ describe('forro', function(){
     it('should correctly cast Date fields from timestamps as strings', function(){
         var form, when = new Date();
         form = new forro({
-            'orderPlaced': forro.date()
+            'orderPlaced': DateField
         })({'orderPlaced': when.getTime()}).validate();
 
         assert.equal(form.val('orderPlaced').toUTCString(), when.toUTCString());
@@ -109,28 +113,28 @@ describe('forro', function(){
 
     it('should allow undefined dates', function(){
         var form = new forro({
-                'orderPlaced': forro.date()
+                'orderPlaced': DateField
             })({}).validate();
         assert.equal(form.val('orderPlaced'), undefined);
     });
 
     it('should treat empty dates as undefined', function(){
         var form = new forro({
-                'orderPlaced': forro.date()
+                'orderPlaced': DateField
             })({'orderPlaced': ''}).validate();
         assert.equal(form.val('orderPlaced'), undefined);
     });
 
     it('should allow setting datefield default to now', function(){
         var form = new forro({
-            'orderPlaced': forro.date().default('now')
+            'orderPlaced': DateField.default(DateField.now)
         })({'orderPlaced': ''}).validate();
         assert(form.val('orderPlaced'));
     });
 
     it('should allow custom filters', function(){
         var form = new forro({
-            'tags': forro.string().use(function(str){
+            'tags': StringField.use(function(str){
                 return str.split(',').map(function(s){
                     return s.trim().toLowerCase();
                 }).filter(function(s){
@@ -139,5 +143,21 @@ describe('forro', function(){
             })
         })({'tags': 'GoT, bearFight'}).validate();
         assert.deepEqual(form.val('tags'), ['got', 'bearfight']);
+    });
+
+    it('should expand static declarations to instances', function(){
+        var Klass = forro({
+            'username': StringField.required(),
+            'full': BooleanField
+        }), inst;
+
+        inst = new Klass();
+
+        assert.equal(typeof inst.fields.username, 'object');
+        assert.equal(inst.fields.username.name, 'username');
+
+        assert.equal(typeof inst.fields.full, 'object');
+        assert.equal(inst.fields.full.name, 'full');
+
     });
 });

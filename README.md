@@ -33,7 +33,7 @@ to handle the actual validation and casting.
                 return s.length > 0;
             });
         }),
-        'created_on': DateField.default('now')
+        'created_on': DateField.default(DateField.now)
     });
 
     app.post("/login", AuthForm.middleware(), function(req, res){
