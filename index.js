@@ -22,34 +22,36 @@ exports = function(decl){
     // constructor called by new.
     // middleware will call this for every request
     // so 1 instance of a form = 1 request
-    return function(data){
+    var inst = function(data){
         return new Form(decl, data);
     };
 
-    // // return middleware handler for express
-    // inst.middleware = function(){
-    //     return function(req, res, next){
-    //         req.form = new Form(decl, opts);
-    //         req.form.fields.map(function(field){
-    //             req.form.set(field.name, req.param(field.name));
-    //         });
+    // return middleware handler for express
+    inst.middleware = function(){
+        return function(req, res, next){
 
-    //         try{
-    //             req.validate();
-    //             next();
-    //         }
-    //         catch(e){
-    //             next(e);
-    //         }
-    //     };
-    // };
-    // return inst;
+            req.form = new Form(decl, {});
+            Object.keys(req.form.fields).map(function(key){
+                req.form.set(key, req.param(key));
+            });
+            try{
+                req.form.validate();
+                next();
+            }
+            catch(e){
+                next(e);
+            }
+        };
+    };
+    return inst;
 };
 
 function Form(decl, data){
-    data = data || {};
+    decl = decl || {};
+    this.data = data || {};
+
     this.fields = decl;
-    this.set(data);
+    this.set(this.data);
 }
 
 Form.prototype.field = function(name){
@@ -61,7 +63,7 @@ Form.prototype.field = function(name){
 // @throws {ValidationError}
 Form.prototype.validate = function(){
     for(var f in this.fields){
-        this.field(f).validate();
+        this.data[f] = this.field(f).validate(this.data[f]);
     }
     return this;
 };
@@ -84,11 +86,15 @@ Form.prototype.vals = function(names){
 };
 
 // populate fields with data.
-Form.prototype.set = function(obj){
-    for(var name in obj){
-        if(this.fields.hasOwnProperty(name)){
-            this.fields[name].set(obj[name]);
+Form.prototype.set = function(key, value){
+    if(typeof key === 'object' && !value){
+        var name, obj = key;
+        for(name in obj){
+            this.data[name] = obj[name];
         }
+    }
+    else {
+        this.data[key] = value;
     }
     return this;
 };
@@ -100,12 +106,12 @@ Form.prototype.val = function(name){
     if(Array.isArray(name)){
         var k, r = {};
         for(k in name){
-            r[name[k]] = this.val(name[k]);
+            r[name[k]] = this.data[name[k]];
         }
         return r;
     }
     else{
-        return this.field(name).val();
+        return this.data[name];
     }
 };
 
@@ -137,8 +143,11 @@ Field.prototype.filters = ['trim', 'xss'];
 
 // Setter for default value
 Field.prototype['default'] = function(val){
-    if(typeof val === 'function'){
-        this.defaultValue = val();
+    if(arguments.length === 0){
+        if(typeof this.defaultValue === 'function'){
+            return this.defaultValue();
+        }
+        return this.defaultValue;
     }
     else {
         this.defaultValue = val;
@@ -154,68 +163,56 @@ Field.prototype.use = function(fn){
     return this;
 };
 
-
-// Gets the sanitized value.
-Field.prototype.val = function(){
-    return this.value;
-};
-
-// @todo (lucas) Set raw value and run validators and filters here?
-Field.prototype.set = function(val){
-    this.value = val;
-    return this;
-};
-
-Field.prototype.validate = function(){
-    var value = this.value || this.defaultValue,
+Field.prototype.validate = function(val){
+    var value = val || this.default(),
         checker,
         sanitizer = sanitize(value),
         self = this;
 
-    this.isDefaultValue = !this.value;
-
     this.filters.map(function(filter){
         if(typeof filter === 'function'){
-            self.value = filter(value);
+            value = filter(value);
         }
         else {
-            self.value = sanitizer[filter]();
+            value = sanitizer[filter]();
         }
     });
 
-    checker = check(this.value);
+    checker = check(value);
 
     this.validators.map(function(validatorArgs){
         if(validatorArgs.length === 0){
             return;
         }
-        var method = validatorArgs.pop();
-        checker[method].apply(checker, validatorArgs);
+        var args = validatorArgs.slice(0),
+            method = args.pop();
+        checker[method].apply(checker, args);
     });
+    return value;
 };
 
 // No way.  A String!
-function StringField(opts){
-    StringField.super_.call(this, opts);
+function StringField(){
+    StringField.super_.call(this);
 }
 util.inherits(StringField, Field);
 
-function NumberField(opts){
-    NumberField.super_.call(this, opts);
+function NumberField(){
+    NumberField.super_.call(this);
     this.filters = ['toInt'];
 }
 util.inherits(NumberField, Field);
 
-function BooleanField(opts){
-    BooleanField.super_.call(this, opts);
+function BooleanField(){
+    BooleanField.super_.call(this);
     this.filters = ['toBoolean'];
 }
 util.inherits(BooleanField, Field);
 
 // Cast a field to a proper Date object.
 // Doesn't matter if its a string format or epoch.
-function DateField(opts){
-    DateField.super_.call(this, opts);
+function DateField(){
+    DateField.super_.call(this);
     this.filters = [this.castDate.bind(this)];
 }
 util.inherits(DateField, Field);

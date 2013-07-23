@@ -158,6 +158,45 @@ describe('forro', function(){
 
         assert.equal(typeof inst.fields.full, 'object');
         assert.equal(inst.fields.full.name, 'full');
+    });
 
+    describe('middleware', function(){
+        var AuthForm = forro({
+            'username': StringField.required(),
+            'password': StringField.required()
+        });
+
+        function expressish(data, path, mid, fn, done){
+            var req = {
+                    'param': function(key){
+                        return data[key];
+                    }
+                },
+                res = {};
+
+            mid(req, res, function(e){
+                if(e){
+                    return done(e);
+                }
+                fn(req, res);
+            });
+        }
+
+        it('should set req.form', function(done){
+            expressish({'username': 'lucas', 'password': 'password'}, '/login', AuthForm.middleware(), function(req, res){
+                assert(req.form);
+                assert.equal(req.form.val('username'), 'lucas');
+                assert.equal(req.form.val('password'), 'password');
+                done();
+            }, done);
+        });
+
+        it('should pass an error to next', function(done){
+            expressish({'username': 'lucas'}, '/login', AuthForm.middleware(), function(req, res){
+                done(new Error('should have bailed before calling the actual controller'));
+            }, function(e){
+                done();
+            });
+        });
     });
 });
