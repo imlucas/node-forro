@@ -115,6 +115,47 @@ Form.prototype.val = function(name){
     }
 };
 
+// map of validator names to validator methods.
+var validators = {
+    'is': 'is',
+    'not': 'not',
+    'email': 'isEmail',
+    'url': 'isUrl',
+    'ip': 'isIP',
+    'ipv4': 'isIPv4',
+    'ipv6': 'isIPv6',
+    'alpha': 'isAlpha',
+    'alphanumeric': 'isAlphanumeric',
+    'numeric': 'isNumeric',
+    'hex': 'isHexadecimal',
+    'hexColor': 'isHexColor',
+    'int': 'isInt',
+    'lowercase': 'isLowercase',
+    'uppercase': 'isUppercase',
+    'decimal': 'isDecimal',
+    'float': 'isFloat',
+    'notNull': 'notNull',
+    'isNull': 'isNull',
+    'notEmpty': 'notEmpty',
+    'equals': 'equals',
+    'contains': 'contains',
+    'notContains': 'notContains',
+    'regex': 'regex',
+    'notRegex': 'notRegex',
+    'length': 'len',
+    'uuid': 'isUUID',
+    'uuidv3': 'isUUIDv3',
+    'uuidv4': 'isUUIDv4',
+    'date': 'isDate',
+    'after': 'isAfter',
+    'before': 'isBefore',
+    'in': 'isIn',
+    'notIn': 'notIn',
+    'min': 'min',
+    'max': 'max',
+    'creditCard': 'isCreditCard'
+};
+
 // base field that wraps node-validator.
 function Field(){
     this.name = undefined;
@@ -123,6 +164,15 @@ function Field(){
     this.message = 'required';
     this.validators = [];
 }
+
+Object.keys(validators).map(function(meth){
+    Field.prototype[meth] = function(){
+        var args = Array.prototype.slice.call(arguments, 0);
+        args.unshift(meth);
+        this.validators.push(args);
+        return this;
+    };
+});
 
 // shortcut for adding a `notEmpty` validator
 Field.prototype.required = function(){
@@ -264,44 +314,3 @@ module.exports.StringField = typeHolder(StringField);
 module.exports.BooleanField = typeHolder(BooleanField);
 module.exports.DateField = typeHolder(DateField);
 module.exports.NumberField = typeHolder(NumberField);
-
-// map of validator names to validator methods.
-var validators = {
-    'is': 'is',
-    'not': 'not',
-    'email': 'isEmail',
-    'url': 'isUrl',
-    'ip': 'isIP',
-    'ipv4': 'isIPv4',
-    'ipv6': 'isIPv6',
-    'alpha': 'isAlpha',
-    'alphanumeric': 'isAlphanumeric',
-    'numeric': 'isNumeric',
-    'hex': 'isHexadecimal',
-    'hexColor': 'isHexColor',
-    'int': 'isInt',
-    'lowercase': 'isLowercase',
-    'uppercase': 'isUppercase',
-    'decimal': 'isDecimal',
-    'float': 'isFloat',
-    'notNull': 'notNull',
-    'isNull': 'isNull',
-    'notEmpty': 'notEmpty',
-    'equals': 'equals',
-    'contains': 'contains',
-    'notContains': 'notContains',
-    'regex': 'regex',
-    'notRegex': 'notRegex',
-    'length': 'len',
-    'uuid': 'isUUID',
-    'uuidv3': 'isUUIDv3',
-    'uuidv4': 'isUUIDv4',
-    'date': 'isDate',
-    'after': 'isAfter',
-    'before': 'isBefore',
-    'in': 'isIn',
-    'notIn': 'notIn',
-    'min': 'min',
-    'max': 'max',
-    'creditCard': 'isCreditCard'
-};
