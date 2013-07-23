@@ -2,7 +2,7 @@
   "author": "Lucas Hrabovsky <hrabovsky.lucas@gmail.com>",
   "name": "forro",
   "description": "WTForms style form validataion for node.js",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "homepage": "http://github.com/imlucas/node-forro",
   "repository": {
     "type": "git",
