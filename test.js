@@ -160,6 +160,20 @@ describe('forro', function(){
         assert.equal(inst.fields.full.name, 'full');
     });
 
+    it('should be able to compose forms', function(){
+        var PagableForm = forro({
+                'results': NumberField.default(20).max(100),
+                'start': NumberField.default(0)
+            }),
+            SearchForm = forro({
+                'q': StringField.required().min(4)
+            }).use(PagableForm),
+            form = new SearchForm({'q': 'mogwai'}).validate();
+        assert.equal(form.val('start'), 0);
+        assert.equal(form.val('results'), 20);
+        assert.equal(form.val('q'), 'mogwai');
+    });
+
     describe('middleware', function(){
         var AuthForm = forro({
             'username': StringField.required(),
