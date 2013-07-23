@@ -31,6 +31,15 @@ forro adds these niceties to Javascript land.
         'remember_me': BooleanField
     });
 
+
+    app.post("/login", AuthForm.middleware(), function(req, res){
+        // Middleware already validated for us
+        // and sent back a 400 error if validation failed.
+        // now we can just call out authentication function with
+        // req.form.val('username') and req.form.val('password')
+    });
+
+
      var BookmarkForm = forro({
         'url': StringField.required().url(),
         'tags': StringField.required().use(function tokenize(str){
@@ -41,13 +50,6 @@ forro adds these niceties to Javascript land.
             });
         }),
         'created_on': DateField.default(DateField.now)
-    });
-
-    app.post("/login", AuthForm.middleware(), function(req, res){
-        // Middleware already validated for us
-        // and sent back a 400 error if validation failed.
-        // now we can just call out authentication function with
-        // req.form.val('username') and req.form.val('password')
     });
 
     app.post("/bookmark", BookmarkForm.middleware(), function(req, res){
