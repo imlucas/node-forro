@@ -120,22 +120,45 @@ describe('forro', function(){
     });
 
     it('should correctly cast Date fields from timestamps as strings', function(){
-        var PizzaForm = forro({
+        var form, when = new Date();
+        form = new forro({
             'orderPlaced': forro.date()
-        }), form, when = new Date();
-
-        form = new PizzaForm({
-            'orderPlaced': when.getTime()
-        }).validate();
+        })({'orderPlaced': when.getTime()}).validate();
 
         assert.equal(form.val('orderPlaced').toUTCString(), when.toUTCString());
     });
 
-    it('should allow undefined dates');
+    it('should allow undefined dates', function(){
+        var form = new forro({
+                'orderPlaced': forro.date()
+            })({}).validate();
+        assert.equal(form.val('orderPlaced'), undefined);
+    });
 
-    it('should allow setting datefield default to now');
+    it('should treat empty dates as undefined', function(){
+        var form = new forro({
+                'orderPlaced': forro.date()
+            })({'orderPlaced': ''}).validate();
+        assert.equal(form.val('orderPlaced'), undefined);
+    });
 
-    it('should allow custom filters');
+    it('should allow setting datefield default to now', function(){
+        var form = new forro({
+            'orderPlaced': forro.date().default('now')
+        })({'orderPlaced': ''}).validate();
+        assert(form.val('orderPlaced'));
+    });
 
-    it('should handle type comparison in validators');
+    it('should allow custom filters', function(){
+        var form = new forro({
+            'tags': forro.string().use(function(str){
+                return str.split(',').map(function(s){
+                    return s.trim().toLowerCase();
+                }).filter(function(s){
+                    return s.length > 0;
+                });
+            })
+        })({'tags': 'GoT, bearFight'}).validate();
+        assert.deepEqual(form.val('tags'), ['got', 'bearfight']);
+    });
 });

@@ -110,6 +110,7 @@ Form.prototype.val = function(name){
 function Field(){
     this.name = undefined;
     this.defaultValue = undefined;
+    this.isDefaultValue = undefined;
     this.message = 'required';
     this.validators = [];
 }
@@ -139,8 +140,13 @@ Field.prototype.sanitizer = null;
 //     this.filters.push(filters.xss);
 Field.prototype.filters = ['trim', 'xss'];
 
+Field.prototype.defaults = {};
+
 // Setter for default value
 Field.prototype['default'] = function(val){
+    if(this.defaults[val]){
+        val = this.defaults[val];
+    }
     if(typeof val === 'function'){
         this.defaultValue = val();
     }
@@ -171,13 +177,16 @@ Field.prototype.set = function(val){
 };
 
 Field.prototype.validate = function(){
-    var checker,
-        sanitizer = sanitize(this.value),
+    var value = this.value || this.defaultValue,
+        checker,
+        sanitizer = sanitize(value),
         self = this;
+
+    this.isDefaultValue = !this.value;
 
     this.filters.map(function(filter){
         if(typeof filter === 'function'){
-            self.value = filter(self.value);
+            self.value = filter(value);
         }
         else {
             self.value = sanitizer[filter]();
@@ -221,10 +230,19 @@ function DateField(opts){
 }
 util.inherits(DateField, Field);
 
+DateField.prototype.defaults = {
+    'now': function(){
+        return new Date().getTime();
+    }
+};
+
 DateField.prototype.castDate = function(val){
     if(val){
         var ms = parseInt(val, 10);
         return new Date((isNaN(ms) ? val : ms));
+    }
+    else {
+        val = undefined;
     }
     return val;
 };
