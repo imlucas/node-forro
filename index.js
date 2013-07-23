@@ -47,13 +47,12 @@ module.exports = function composeForm(schema){
             Object.keys(req.form.fields).map(function(key){
                 req.form.set(key, req.param(key));
             });
-            try{
-                req.form.validate();
-                next();
+            req.form.validate();
+
+            if(req.form.errors.length === 0){
+                return next();
             }
-            catch(e){
-                next(e);
-            }
+            next(new Error(req.form.errors[0]));
         };
     };
 
@@ -104,7 +103,12 @@ function Form(fields, data){
 // @returns {Form}
 Form.prototype.validate = function(){
     for(var f in this.fields){
-        this.data[f] = this.fields[f].validate(this.data[f]);
+        try{
+            this.data[f] = this.fields[f].validate(this.data[f]);
+        }
+        catch(e){
+            this.errors.push(f + ' ' + e.message);
+        }
     }
     return this;
 };
@@ -160,51 +164,46 @@ function Field(){
     // functions to call on the node-validator Validator instance
     this.validators = [];
 
+    // holder for validation vfailure messages
+    this.messages = [];
+
     // default filtering methods to apply to all incoming input
     this.filters = ['trim', 'xss'];
 }
 
 // map of validator names to node-validator methods.
 var validatorMap = {
-    'is': 'is',
-    'not': 'not',
-    'email': 'isEmail',
-    'url': 'isUrl',
-    'ip': 'isIP',
-    'ipv4': 'isIPv4',
-    'ipv6': 'isIPv6',
-    'alpha': 'isAlpha',
-    'alphanumeric': 'isAlphanumeric',
-    'numeric': 'isNumeric',
-    'hex': 'isHexadecimal',
-    'hexColor': 'isHexColor',
-    'int': 'isInt',
-    'lowercase': 'isLowercase',
-    'uppercase': 'isUppercase',
-    'decimal': 'isDecimal',
-    'float': 'isFloat',
-    'notNull': 'notNull',
-    'isNull': 'isNull',
-    'notEmpty': 'notEmpty',
-    'equals': 'equals',
-    'contains': 'contains',
-    'notContains': 'notContains',
-    'regex': 'regex',
-    'notRegex': 'notRegex',
-    'length': 'len',
-    'uuid': 'isUUID',
-    'uuidv3': 'isUUIDv3',
-    'uuidv4': 'isUUIDv4',
-    'date': 'isDate',
-    'after': 'isAfter',
-    'before': 'isBefore',
-    'in': 'isIn',
-    'notIn': 'notIn',
-    'min': 'min',
-    'max': 'max',
-    'creditCard': 'isCreditCard',
-    'required': 'notEmpty'
+    'is': ['is', 1, 'match %s'],
+    'not': ['not', 1, 'match %s'],
+    'email': ['isEmail', 0, 'be a valid email address'],
+    'url': ['isUrl', 0, 'be a valid URL'],
+    'ip': ['isIP', 0, 'be a valid IP address'],
+    'numeric': ['isNumeric', 0, 'be numeric'],
+    'hex': ['isHexadecimal', 0, 'be a hexidecimal'],
+    'hexColor': ['isHexColor', 0, 'be a hex color code'],
+    'int': ['isInt', 0, 'be an integer'],
+    'float': ['isFloat', 0, 'be a float'],
+    'notNull': ['notNull', 0, 'be null'],
+    'isNull': ['isNull', 0, 'be null'],
+    'notEmpty': ['notEmpty', 0, 'be empty'],
+    'equals': ['equals', 1, 'equal %s'],
+    'contains': ['contains', 1, 'contain %s'],
+    'notContains': ['notContains', 1, 'contain %s'],
+    'regex': ['regex', 1, 'match  %'],
+    'notRegex': ['notRegex', 1, 'match  %'],
+    'len': ['len', 1, 'have a length between %s and %s'],
+    'uuid': ['isUUID', 0, 'be a UUID'],
+    'date': ['isDate', 0, 'be a Date'],
+    'after': ['isAfter', 1, 'be a Date after %s'],
+    'before': ['isBefore', 1, 'be a Date before %s'],
+    'in': ['isIn', 1, 'be one of %s'],
+    'notIn': ['notIn', 1, 'be one of %s'],
+    'min': ['min', 1, 'be longer than %s characters'],
+    'max': ['max', 1, 'be no longer than %s characters'],
+    'creditCard': ['isCreditCard', 0, 'be a valid credit card number'],
+    'required': ['notEmpty', 0, 'be empty']
 };
+
 
 // add pass through methods.
 Object.keys(validatorMap).map(function(meth){
@@ -213,8 +212,26 @@ Object.keys(validatorMap).map(function(meth){
     //
     // @returns {Field}
     Field.prototype[meth] = function(){
-        var args = Array.prototype.slice.call(arguments, 0);
-        args.unshift(validatorMap[meth]);
+        var args = Array.prototype.slice.call(arguments, 0),
+            not = validatorMap[meth][0].indexOf('not') > -1 ? 'not ' : '',
+            condition = 'must ' + not + validatorMap[meth][2];
+
+        // message passed in as last argument
+        if(args.length > validatorMap[meth][1]){
+            condition = args.pop();
+        }
+
+        if(condition === 'must not be empty'){
+            condition = 'is required';
+        }
+
+        if(args.length > 0){
+            condition = util.format(condition, args[0], args[1]);
+        }
+
+        this.messages.push(condition);
+
+        args.unshift(validatorMap[meth][0]);
         this.validators.push(args);
         return this;
     };
@@ -243,7 +260,12 @@ Field.prototype.use = function(fn){
     return this;
 };
 
+// filter any kind of input through some sanitization
+// and throw if any validation functions fail.
 //
+// @param {Object} val any kind of input
+// @returns {Object} sanitized value
+// @throws {Error}
 Field.prototype.validate = function(val){
     var value = val || this.default(),
         checker,
@@ -260,13 +282,18 @@ Field.prototype.validate = function(val){
     });
 
     checker = check(value);
-    this.validators.map(function(validatorArgs){
+    this.validators.map(function(validatorArgs, index){
         if(validatorArgs.length === 0){
             return;
         }
         var args = validatorArgs.slice(0),
             method = args.shift();
-        checker[method].apply(checker, args);
+        try{
+            checker[method].apply(checker, args);
+        }
+        catch(e){
+            throw new Error(self.messages[index]);
+        }
     });
     return value;
 };

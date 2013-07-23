@@ -25,21 +25,16 @@ describe('forro', function(){
         var AuthForm = forro({
             'username': StringField.required(),
             'password': StringField.required()
-        });
-        assert.throws(function(){
-            new AuthForm({'username': 'a'}).validate();
-        }, Error);
+        }), form =  new AuthForm({'username': 'a'}).validate();
+        assert(form.errors.length > 0);
     });
 
     it('should throw if a required field is just whitespace', function(){
         var AuthForm = forro({
             'username': StringField.required(),
             'password': StringField.required()
-        });
-
-        assert.throws(function(){
-            new AuthForm({'username': '        ', 'password': 'ja'}).validate();
-        }, Error);
+        }), form = new AuthForm({'username': '        ', 'password': 'ja'}).validate();
+        assert(form.errors.length > 0);
     });
 
     it('should allow required and optional fields', function(){
@@ -172,6 +167,31 @@ describe('forro', function(){
         assert.equal(form.val('start'), 0);
         assert.equal(form.val('results'), 20);
         assert.equal(form.val('q'), 'mogwai');
+    });
+
+    it('should have nice error messages by default', function(){
+        var SearchForm = forro({
+            'q': StringField.required()
+        });
+        assert.deepEqual(new SearchForm({}).validate().errors[0],
+            'q is required');
+    });
+
+    it('should allow supplying an error message for a validator', function(){
+        var SearchForm = forro({
+            'q': StringField.required('should be something to search for no?')
+        });
+        assert.deepEqual(new SearchForm({}).validate().errors[0],
+            'q should be something to search for no?');
+    });
+
+    it('should allow supplying message formatting tokens', function(){
+        var SearchForm = forro({
+            'q': StringField.len(4, 20, 'must be between %s and %s characters')
+        });
+
+        assert.deepEqual(new SearchForm({'q': 'mog'}).validate().errors[0],
+            'q must be between 4 and 20 characters');
     });
 
     describe('middleware', function(){
