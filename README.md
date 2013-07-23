@@ -11,14 +11,29 @@ to handle the actual validation and casting.
 
     var express = require("express"),
         app = express(),
-        forro = require('forro');
+        forro = require('forro'),
+        StringField = forro.StringField,
+        BooleanField = forro.BooleanField,
+        DateField = forro.DateField;
 
     // ... some code
 
     var AuthForm = forro({
-        'username': forro.string().required().max(32),
-        'password': forro.string().required().length(4, 25),
-        'rememberMe': forro.boolean()
+        'username': StringField.required().max(32),
+        'password': StringField.required().length(4, 25),
+        'remember_me': BooleanField
+    });
+
+     var BookmarkForm = forro({
+        'url': StringField.required().url(),
+        'tags': StringField.required().use(function tokenize(str){
+            return str.split(',').map(function(s){
+                return s.trim().toLowerCase();
+            }).filter(function(s){
+                return s.length > 0;
+            });
+        }),
+        'created_on': DateField.default('now')
     });
 
     app.post("/login", AuthForm.middleware(), function(req, res){
