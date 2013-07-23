@@ -14,7 +14,7 @@ forro adds these niceties to Javascript land.
 
 [![Build Status](https://secure.travis-ci.org/exfm/node-forro.png)](http://travis-ci.org/exfm/node-forro)
 
-## Express Example
+## Example
 
     var express = require("express"),
         app = express(),
