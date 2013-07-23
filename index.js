@@ -4,33 +4,46 @@ var util = require('util'),
     check = require('validator').check,
     sanitize = require('validator').sanitize;
 
-function ValidationError(msg){
-    this.name = 'ValidationError';
-    this.message = msg;
-    ValidationError.super_.call(this, msg);
-}
-util.inherits(ValidationError, Error);
-
-exports = function(decl){
-    for(var name in decl){
-        if(typeof decl[name] === 'function'){
-            decl[name] = new decl[name]();
+module.exports = function composeForm(schema){
+    // go through our schema and setup the actual fields.
+    // if the field was just a static declaration, we can speed things up
+    // later by just instantiating it now.
+    // we can also decorate field names for easier debuging.
+    Object.keys(schema).map(function(name){
+        if(typeof schema[name] === 'function'){
+            schema[name] = new schema[name]();
         }
-        decl[name].name = name;
-    }
+        schema[name].name = name;
+    });
 
-    // constructor called by new.
-    // middleware will call this for every request
-    // so 1 instance of a form = 1 request
-    var inst = function(data){
-        return new Form(decl, data);
+    // the constructor should return a new form instance.
+    var Composer = function(data){
+        return new Form(Composer.schema, data);
     };
 
-    // return middleware handler for express
-    inst.middleware = function(){
-        return function(req, res, next){
+    // stash our schema on the composer if anyone wants to build on us.
+    Composer.schema = schema;
 
-            req.form = new Form(decl, {});
+    // return middleware handler for express
+    //
+    // example:
+    //
+    //    var forro = require('forro'),
+    //        auth = module.exports = express(),
+    //        AuthForm = forro({
+    //            'username': forro.StringField.required(),
+    //            'password': forro.StringField.required()
+    //        });
+    //
+    //    auth.post('/login', AuthForm.middleware(), function(req, res){
+    //        // use req.form.val('username') and req.form.val('password')
+    //        // to authenticate the user.
+    //    });
+    //
+    // @return {Function}
+    Composer.middleware = function(){
+        return function(req, res, next){
+            req.form = new Form(schema);
             Object.keys(req.form.fields).map(function(key){
                 req.form.set(key, req.param(key));
             });
@@ -43,36 +56,51 @@ exports = function(decl){
             }
         };
     };
-    return inst;
+
+    // copy schema of otherComposer onto this one.
+    // allows for form inheritance.
+    //
+    // example
+    //     var forro = require('forro'),
+    //         PageableForm = forro({
+    //             'start': forro.NumberField.default(0),
+    //             'results': forro.NumberField.default(20).max(100)
+    //         }),
+    //         SearchForm = forro({
+    //             'q': forro.StringField.required().min(4)
+    //         }).use(PageableForm);
+    //
+    // @param {Composer} otherComposer
+    // @returns {Composer}
+    Composer.use = function(otherComposer){
+        if(!otherComposer.schema){
+            throw new TypeError('i dont know what to do with this.');
+        }
+        Object.keys(otherComposer.schema).map(function(key){
+            Composer.schema[key] = otherComposer.schema[key];
+        });
+        return Composer;
+    };
+    return Composer;
 };
 
-function Form(decl, data){
-    decl = decl || {};
+
+function Form(fields, data){
     this.data = data || {};
-
-    this.fields = decl;
-    this.set(this.data);
+    this.errors = [];
+    this.fields = fields || {};
 }
-
-Form.prototype.field = function(name){
-    return this.fields[name];
-};
 
 // validate all fields
 //
-// @throws {ValidationError}
+// @todo (lucas) catch validation error messages and put on a stack.
+//
+// @returns {Form}
 Form.prototype.validate = function(){
     for(var f in this.fields){
-        this.data[f] = this.field(f).validate(this.data[f]);
+        this.data[f] = this.fields[f].validate(this.data[f]);
     }
     return this;
-};
-
-Form.prototype.validateOrAbort = function(){
-    if(this.validate().errors.length > 0){
-        this.res.send(400, this.errors);
-    }
-    return true;
 };
 
 // Take a list of field names and return a list of values.
@@ -86,25 +114,19 @@ Form.prototype.vals = function(names){
 };
 
 // populate fields with data.
+//
+// @param {String} key the field name
+// @param {Object} value value to give the field to validate
+// @returns {Form}
 Form.prototype.set = function(key, value){
-    if(typeof key === 'object' && !value){
-        if(Object.keys(key).length < 1){
-            return this;
-        }
-        var name, obj = key;
-        for(name in obj){
-            this.data[name] = obj[name];
-        }
-    }
-    else {
-        this.data[key] = value;
-    }
+    this.data[key] = value;
     return this;
 };
 
 // get the validated and sanitized value for a field.
 //
 // @param {String} name
+// @returns {Object} validated and filtered data
 Form.prototype.val = function(name){
     if(Array.isArray(name)){
         var k, r = {};
@@ -118,8 +140,26 @@ Form.prototype.val = function(name){
     }
 };
 
-// map of validator names to validator methods.
-var validators = {
+
+// base field that wraps node-validator to validate and filter a value.
+function Field(){
+    // a decoration name that will be added if this field is composed into
+    // a form.
+    this.name = undefined;
+
+    // default value or function to call when validating if no user
+    // input provided
+    this.defaultValue = undefined;
+
+    // functions to call on the node-validator Validator instance
+    this.validators = [];
+
+    // default filtering methods to apply to all incoming input
+    this.filters = ['trim', 'xss'];
+}
+
+// map of validator names to node-validator methods.
+var validatorMap = {
     'is': 'is',
     'not': 'not',
     'email': 'isEmail',
@@ -156,46 +196,29 @@ var validators = {
     'notIn': 'notIn',
     'min': 'min',
     'max': 'max',
-    'creditCard': 'isCreditCard'
+    'creditCard': 'isCreditCard',
+    'required': 'notEmpty'
 };
 
-// base field that wraps node-validator.
-function Field(){
-    this.name = undefined;
-    this.defaultValue = undefined;
-    this.isDefaultValue = undefined;
-    this.message = 'required';
-    this.validators = [];
-    this.filters = ['trim', 'xss'];
-}
-
-Object.keys(validators).map(function(meth){
+// add pass through methods.
+Object.keys(validatorMap).map(function(meth){
+    // adds a Field#{validator} method that will add to the
+    // chain of node-validator methods to run when validating the form.
+    //
+    // @returns {Field}
     Field.prototype[meth] = function(){
         var args = Array.prototype.slice.call(arguments, 0);
-        args.unshift(meth);
+        args.unshift(validatorMap[meth]);
         this.validators.push(args);
         return this;
     };
+    Field.prototype[meth].name = 'forroToValidator' + meth;
 });
 
-// shortcut for adding a `notEmpty` validator
-Field.prototype.required = function(){
-    this.isRequired = true;
-    this.validators.push(['notEmpty']);
-    return this;
-};
-
-// Functions to call on the node-validator Validator instance
+// setter/getter for default value
 //
-//     this.validators.push(validators.email);
-Field.prototype.validators = [];
-
-// Functions to call on the node-validator Filter instance
-//
-//     this.filters.push(filters.xss);
-// Field.prototype.filters = ['trim', 'xss'];
-
-// Setter for default value
+// don't use `defineProperty` for better composition api.
+// @returns {Filter} if setting, defaultValue or result of defaultValue callable.
 Field.prototype['default'] = function(val){
     if(arguments.length === 0){
         if(typeof this.defaultValue === 'function'){
@@ -203,20 +226,18 @@ Field.prototype['default'] = function(val){
         }
         return this.defaultValue;
     }
-    else {
-        this.defaultValue = val;
-    }
+    this.defaultValue = val;
     return this;
 };
 
-// Custom filter function to apply to an incoming field.
-// should be called before or after native (ie toInt, toString)?
-// callback-able?
+// custom filter function to apply to an incoming field.
+// @returns {Filter}
 Field.prototype.use = function(fn){
     this.filters.push(fn);
     return this;
 };
 
+//
 Field.prototype.validate = function(val){
     var value = val || this.default(),
         checker,
@@ -228,25 +249,48 @@ Field.prototype.validate = function(val){
             value = filter(value);
         }
         else {
-
             value = sanitizer[filter]();
         }
     });
 
     checker = check(value);
-
     this.validators.map(function(validatorArgs){
         if(validatorArgs.length === 0){
             return;
         }
         var args = validatorArgs.slice(0),
-            method = args.pop();
+            method = args.shift();
         checker[method].apply(checker, args);
     });
     return value;
 };
 
-// No way.  A String!
+// wrap a class to add static methods for all instance methods that merely
+// created a new instance of a class and return calling the method
+// using our new instance as the context.
+//
+// @param {Field} FieldConstructor
+// @returns {Field} extended Prototype with statics that expand to instance methds.
+Field.compose = function fieldComposer(FieldConstructor){
+    var inst = FieldConstructor,
+        methods = Array.prototype.concat.call([],
+            Object.keys(FieldConstructor.super_.prototype),
+            Object.keys(FieldConstructor.prototype));
+
+    methods.map(function(meth){
+        inst[meth] = function(){
+            var i = new FieldConstructor();
+            return i[meth].apply(i, Array.prototype.slice.call(arguments, 0));
+        };
+    });
+    return inst;
+};
+
+// ## Fields
+//
+// pre-can some filters.  allows us to easily add new field types that handle
+// different casting / deserialization scenarios.
+//
 function StringField(){
     StringField.super_.call(this);
 }
@@ -283,6 +327,9 @@ DateField.now = function(){
 };
 
 // Handle casting ms or timestamp string to a Date instance.
+//
+// @param {Number|String} val time in ms or a valid date string
+// @returns {Date}
 DateField.prototype.castDate = function(val){
     if(val){
         var ms = parseInt(val, 10);
@@ -294,28 +341,24 @@ DateField.prototype.castDate = function(val){
     return val;
 };
 
-module.exports = exports;
-
-// wrap a class to add static methods for all instance methods that merely
-// created a new instance of a class and return calling the method
-// using our new instance as the context.
-function typeHolder(Prototype){
-    var inst = Prototype,
-        methods = Array.prototype.concat.call([],
-            Object.keys(Prototype.super_.prototype),
-            Object.keys(Prototype.prototype));
-
-    methods.map(function(meth){
-        inst[meth] = function(){
-            var i = new Prototype();
-            return i[meth].apply(i, Array.prototype.slice.call(arguments, 0));
-        };
-    });
-    return inst;
-}
-
-// expose fields for typing
-module.exports.StringField = typeHolder(StringField);
-module.exports.BooleanField = typeHolder(BooleanField);
-module.exports.DateField = typeHolder(DateField);
-module.exports.NumberField = typeHolder(NumberField);
+// expose built-in field types wrapped in fieldComposer.
+// if you are adding custom fields, please do this.
+//
+// example:
+//
+//     // my-json-field.js
+//     var forro = require('forro'),
+//         util = require('util');
+//     function MyJsonField(){
+//         MyJsonField.super_.call(this);
+//         this.filters.push(this.parse.bind(this));
+//     }
+//     MyJsonField.prototype.parse = function(str){
+//         return JSON.parse(str);
+//     };
+//     module.exports = Field.compose(MyJsonField);
+//
+module.exports.StringField = Field.compose(StringField);
+module.exports.BooleanField = Field.compose(BooleanField);
+module.exports.DateField = Field.compose(DateField);
+module.exports.NumberField = Field.compose(NumberField);
