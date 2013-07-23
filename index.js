@@ -84,7 +84,13 @@ module.exports = function composeForm(schema){
     return Composer;
 };
 
-
+// forms are mutable and designed for one time use.
+// they have fields and data added to them.
+// running validate goes through all fields and
+// validates and filters data where the data key is the field name.
+//
+// @param {Object} fields map of keys to Field instances
+// @param {Object} data input data to validate and filter
 function Form(fields, data){
     this.data = data || {};
     this.errors = [];
