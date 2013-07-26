@@ -329,6 +329,11 @@ function StringField(){
 }
 util.inherits(StringField, Field);
 
+function LongField(){
+    LongField.super_.call(this);
+}
+util.inherits(LongField, Field);
+
 function NumberField(){
     NumberField.super_.call(this);
     this.filters.push('toInt');
@@ -395,3 +400,4 @@ module.exports.StringField = Field.compose(StringField);
 module.exports.BooleanField = Field.compose(BooleanField);
 module.exports.DateField = Field.compose(DateField);
 module.exports.NumberField = Field.compose(NumberField);
+module.exports.LongField = Field.compose(LongField);
